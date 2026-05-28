@@ -23,8 +23,6 @@ env/
 
 # Output images saved by the viewer
 kitti_frame_*.png
-preview_frame*.png
-*.png
 !docs/images/*.png
 
 # Dataset — never commit raw sensor data
