@@ -52,8 +52,13 @@ mplcursors_cache/
 Thumbs.db
 desktop.ini
 
-# Local run script
+# Local run script (machine-specific venv path)
 run.sh
+
+# Exported videos
+*.mp4
+*.avi
+*.mkv
 
 # Logs & profiling
 *.log

@@ -9,6 +9,7 @@ Interactive viewer with three panels:
 
 Controls
 --------
+  space            : play / pause
   n / right-arrow  : next frame
   p / left-arrow   : previous frame
   q / Escape       : quit
@@ -16,7 +17,7 @@ Controls
 
 Usage
 -----
-  python viewer.py [--drive DRIVE_DIR] [--calib CALIB_DIR] [--cam CAM] [--start N]
+  python viewer.py [--drive DRIVE_DIR] [--calib CALIB_DIR] [--cam CAM] [--start N] [--fps N]
 
 Defaults point to the KITTI sequence included in ~/Datasets/KITTI/extract/.
 """
@@ -72,7 +73,8 @@ def load_frame(frame_idx: int, velo_files: list, cam_files: list,
 # ---------------------------------------------------------------------------
 
 class KITTIViewer:
-    def __init__(self, drive_dir: Path, calib_dir: Path, cam: int = 2, start: int = 0):
+    def __init__(self, drive_dir: Path, calib_dir: Path, cam: int = 2,
+                 start: int = 0, fps: int = 10):
         self.velo_files = sorted_files(drive_dir / "velodyne_points" / "data", ".bin")
         self.cam_files  = sorted_files(drive_dir / f"image_0{cam}" / "data", ".png")
         n = min(len(self.velo_files), len(self.cam_files))
@@ -82,7 +84,10 @@ class KITTIViewer:
 
         self.P, self.velo_to_rect = build_projection_matrix(calib_dir, cam)
         self.cam = cam
+        self.fps = fps
         self.frame_idx = max(0, min(start, n - 1))
+        self._playing = False
+        self._timer = None
 
         self._build_ui()
         self._draw(self.frame_idx)
@@ -138,15 +143,18 @@ class KITTIViewer:
         # Keyboard + button callbacks
         self.fig.canvas.mpl_connect("key_press_event", self._on_key)
 
-        # Prev / Next buttons
-        ax_prev = self.fig.add_axes([0.38, 0.03, 0.08, 0.05])
-        ax_next = self.fig.add_axes([0.54, 0.03, 0.08, 0.05])
-        self.btn_prev = Button(ax_prev, "◀ Prev", color="#2d2d5b", hovercolor="#4444aa")
-        self.btn_next = Button(ax_next, "Next ▶", color="#2d2d5b", hovercolor="#4444aa")
-        self.btn_prev.label.set_color("white")
-        self.btn_next.label.set_color("white")
+        # Prev / Play-Pause / Next buttons
+        ax_prev  = self.fig.add_axes([0.30, 0.03, 0.07, 0.05])
+        ax_play  = self.fig.add_axes([0.38, 0.03, 0.09, 0.05])
+        ax_next  = self.fig.add_axes([0.48, 0.03, 0.07, 0.05])
+        self.btn_prev = Button(ax_prev,  "◀ Prev",   color="#2d2d5b", hovercolor="#4444aa")
+        self.btn_play = Button(ax_play,  "▶  Play",  color="#1a3a1a", hovercolor="#2a6a2a")
+        self.btn_next = Button(ax_next,  "Next ▶",   color="#2d2d5b", hovercolor="#4444aa")
+        for btn in (self.btn_prev, self.btn_play, self.btn_next):
+            btn.label.set_color("white")
         self.btn_prev.on_clicked(lambda _: self._step(-1))
         self.btn_next.on_clicked(lambda _: self._step(+1))
+        self.btn_play.on_clicked(lambda _: self._toggle_play())
 
         # Frame slider
         ax_slider = self.fig.add_axes([0.15, 0.05, 0.70, 0.025])
@@ -228,7 +236,7 @@ class KITTIViewer:
         self.txt_info.set_text(
             f"Frame {frame_idx + 1}/{self.n_frames}   |   file: {fname}   |   "
             f"points: {len(pts):,}   |   projected: {len(uv):,}   |   "
-            f"keys: [n] next  [p] prev  [s] save  [q] quit"
+            f"keys: [space] play/pause  [n] next  [p] prev  [s] save  [q] quit"
         )
 
         self.fig.canvas.draw_idle()
@@ -245,11 +253,38 @@ class KITTIViewer:
             self.frame_idx = idx
             self._draw(self.frame_idx)
 
+    def _toggle_play(self):
+        if self._playing:
+            self._playing = False
+            if self._timer is not None:
+                self._timer.stop()
+            self.btn_play.label.set_text("▶  Play")
+            self.btn_play.ax.set_facecolor("#1a3a1a")
+        else:
+            self._playing = True
+            self.btn_play.label.set_text("⏸ Pause")
+            self.btn_play.ax.set_facecolor("#3a1a1a")
+            interval_ms = max(1, int(1000 / self.fps))
+            self._timer = self.fig.canvas.new_timer(interval=interval_ms)
+            self._timer.add_callback(self._autoplay_tick)
+            self._timer.start()
+        self.fig.canvas.draw_idle()
+
+    def _autoplay_tick(self):
+        self.frame_idx = (self.frame_idx + 1) % self.n_frames
+        # Update slider position without triggering the slider callback
+        self.slider.eventson = False
+        self.slider.set_val(self.frame_idx)
+        self.slider.eventson = True
+        self._draw(self.frame_idx)
+
     def _on_key(self, event):
         if event.key in ("n", "right"):
             self._step(+1)
         elif event.key in ("p", "left"):
             self._step(-1)
+        elif event.key == " ":
+            self._toggle_play()
         elif event.key in ("q", "escape"):
             plt.close(self.fig)
         elif event.key == "s":
@@ -276,10 +311,11 @@ def main():
     parser.add_argument("--calib", type=Path, default=DEFAULT_CALIB)
     parser.add_argument("--cam",   type=int,  default=2,
                         help="Camera index: 0=grey-left 1=grey-right 2=colour-left 3=colour-right")
-    parser.add_argument("--start", type=int,  default=0, help="Starting frame index")
+    parser.add_argument("--start", type=int,  default=0,  help="Starting frame index")
+    parser.add_argument("--fps",   type=int,  default=10, help="Autoplay speed (frames per second)")
     args = parser.parse_args()
 
-    v = KITTIViewer(args.drive, args.calib, args.cam, args.start)
+    v = KITTIViewer(args.drive, args.calib, args.cam, args.start, args.fps)
     v.show()
 
 
