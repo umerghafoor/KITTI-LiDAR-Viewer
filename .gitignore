@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Output images saved by the viewer
+kitti_frame_*.png
+preview_frame*.png
+*.png
+!docs/images/*.png
+
+# Dataset — never commit raw sensor data
+*.bin
+*.pcd
+*.ply
+*.las
+*.laz
+data/
+Datasets/
+
+# Matplotlib / GUI cache
+.matplotlib/
+mplcursors_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & profiling
+*.log
+*.prof
+*.lprof
