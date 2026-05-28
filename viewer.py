@@ -27,7 +27,7 @@ from pathlib import Path
 
 import numpy as np
 import matplotlib
-matplotlib.use("TkAgg")          # change to "Qt5Agg" or "MacOSX" if needed
+matplotlib.use("QtAgg")  # requires PyQt6 (or PyQt5); install with: pip install pyqt6
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.widgets import Button, Slider

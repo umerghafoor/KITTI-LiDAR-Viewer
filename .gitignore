@@ -52,6 +52,9 @@ mplcursors_cache/
 Thumbs.db
 desktop.ini
 
+# Local run script
+run.sh
+
 # Logs & profiling
 *.log
 *.prof
